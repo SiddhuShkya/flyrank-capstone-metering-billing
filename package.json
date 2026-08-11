@@ -1,0 +1,15 @@
+{
+    "name": "flyrank-capstone-metering-billing",
+    "version": "1.0.0",
+    "description": "Metering and billing backend for the capstone project",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "node --watch index.js"
+    },
+    "dependencies": {
+        "dotenv": "^16.4.2",
+        "express": "^4.21.2",
+        "pg": "^8.2.0"
+    }
+}
