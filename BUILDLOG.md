@@ -31,3 +31,31 @@ This document tracks the progress of the Capstone Project and honestly details t
 - **How AI helped:** The AI assistant drafted the initial `DESIGN.md` based on the requirements found in `DEVELOPER.md` and `TASK.md`. It structured the document into clear architectural layers and provided the base logic for handling quotas and idempotency.
 - **What was refined:** I noticed the initial design was a bit abstract, so I directed the AI to explicitly write out the database schema, add concrete examples with sample data tables, and formalize the JSON API payloads. The AI updated the document to include these specifics.
 - **My understanding:** By driving the AI to be more explicit with the schema and API contract, I ensured we have a concrete blueprint for Phase 2. I understand that the PostgreSQL unique constraint is the critical mechanism that will prevent duplicate usage events from being inserted during a network retry.
+
+## Phase 2: Core billing logic
+
+**Status:** Completed
+
+**What was done:**
+- Implemented the billable API at `POST /api/v1/generate` to accept `X-Tenant-Id`, `Idempotency-Key`, `input_tokens`, and `output_tokens`.
+- Added a repository layer for subscription lookup, usage aggregation, usage insertion, and lookup by idempotency key.
+- Added service-level quota enforcement so requests that exceed a tenant’s current plan limit are blocked with `429`.
+- Enforced idempotency using PostgreSQL’s unique constraint on `(tenant_id, idempotency_key)` so the same request can safely be retried without double-counting usage.
+- Added a usage summary endpoint at `GET /api/v1/usage/summary`.
+- Added tests covering duplicate retries, quota boundaries, and summary behavior.
+
+**AI Collaboration Notes:**
+- **How AI helped:** The AI implemented the compact service/repository structure, wired the routes, and tested the duplicate-and-limit behavior against the database-backed API.
+- **What was refined:** I asked for careful checks around the quota boundary logic and for the exact API contract expected by the project task. The AI adjusted the implementation to return the correct error statuses and maintain clear request semantics.
+- **My understanding:** The main correctness rule in Phase 2 is simple but critical: a request plus the same idempotency key must result in exactly one usage event. This protects the system from accidental double-charging during retries while still enforcing plan limits cleanly.
+
+**Verification Evidence:**
+- Ran the database initialization and Jest suite in the Dockerized app container:
+  - `docker compose run --rm app sh -lc 'node scripts/init_db.js && npm test -- --runInBand'`
+- Result: `PASS` — 1 suite passed, 6 tests passed, 0 failed.
+- The authenticated checks covered:
+  - within-limit request succeeds,
+  - duplicate idempotent request succeeds without creating a second event,
+  - over-limit request returns `429`,
+  - exactly-at-limit behavior is enforced correctly,
+  - summary endpoint reports total used and quota limit.

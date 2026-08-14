@@ -1,8 +1,12 @@
 const express = require('express');
 const pool = require('./db');
+const billingRoutes = require('./routes/billing.routes');
+
 const app = express();
 
 app.use(express.json());
+
+app.use('/api/v1', billingRoutes);
 
 app.get('/', (req, res) => {
     res.json({
