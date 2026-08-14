@@ -36,7 +36,19 @@ If you want to run the app outside of Docker (e.g., using `npm run dev`), make s
 The connection is configured via the `DATABASE_URL` environment variable in your `.env` file. By default, it connects to:
 `postgres://YOUR_POSTGRES_USERNAME:YOUR_POSTGRES_PASSWORD@localhost:5433/YOUR_POSTGRES_DB_NAME` (note that we expose port 5433 to the host machine in `docker-compose.yml` to avoid conflicts).
 
-### 3. Run Locally (Alternative)
+The database schema and seed data are initialized automatically from the SQL files in `db/` when PostgreSQL starts for the first time in Docker. The files are run in order (`01-create_tables.sql` first, then `02-insert_data.sql`). If you reset the Docker volume with `docker compose down -v`, the scripts will be re-run.
+
+### 3. Run Tests
+Make sure PostgreSQL is running first:
+```bash
+docker compose up postgres -d
+```
+Then run the test suite:
+```bash
+npm test
+```
+
+### 4. Run Locally (Alternative)
 First, ensure you've started the database using Docker Compose:
 ```bash
 docker compose up postgres -d

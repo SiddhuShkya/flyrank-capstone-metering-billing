@@ -77,7 +77,7 @@ describe('Billing API', () => {
         expect(response.body.success).toBe(true);
         expect(response.body.tokens_used).toBe(9700);
     });
-    
+
     it('should block request when exactly at the limit and requesting more', async () => {
         const response = await request(app)
             .post('/api/v1/generate')

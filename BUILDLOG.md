@@ -43,15 +43,17 @@ This document tracks the progress of the Capstone Project and honestly details t
 - Enforced idempotency using PostgreSQL’s unique constraint on `(tenant_id, idempotency_key)` so the same request can safely be retried without double-counting usage.
 - Added a usage summary endpoint at `GET /api/v1/usage/summary`.
 - Added tests covering duplicate retries, quota boundaries, and summary behavior.
+- Switched the database bootstrap to SQL files under `db/`, using numbered init scripts so schema creation and seed data run in a controlled order during container startup.
+- Verified the Docker startup flow by resetting the postgres volume and confirming the app connects only after PostgreSQL is healthy.
 
 **AI Collaboration Notes:**
-- **How AI helped:** The AI implemented the compact service/repository structure, wired the routes, and tested the duplicate-and-limit behavior against the database-backed API.
-- **What was refined:** I asked for careful checks around the quota boundary logic and for the exact API contract expected by the project task. The AI adjusted the implementation to return the correct error statuses and maintain clear request semantics.
-- **My understanding:** The main correctness rule in Phase 2 is simple but critical: a request plus the same idempotency key must result in exactly one usage event. This protects the system from accidental double-charging during retries while still enforcing plan limits cleanly.
+- **How AI helped:** The AI implemented the compact service/repository structure, wired the routes, and tested the duplicate-and-limit behavior against the database-backed API. It also helped debug the database bootstrap flow by separating schema creation from seed data and adjusting the Docker startup pattern to match Postgres best practices.
+- **What was refined:** I asked for careful checks around the quota boundary logic, the exact API contract expected by the project task, and the Docker initialization flow. The AI adjusted the setup to avoid redundant runtime database creation logic and kept the real initialization responsibilities in Postgres startup instead of app code.
+- **My understanding:** The main correctness rule in Phase 2 is simple but critical: a request plus the same idempotency key must result in exactly one usage event. This protects the system from accidental double-charging during retries while still enforcing plan limits cleanly. I also learned that a database volume can mask earlier bootstrap mistakes, so a clean `docker compose down -v` followed by a fresh `docker compose up` is the reliable way to validate the schema and seed flow.
 
 **Verification Evidence:**
 - Ran the database initialization and Jest suite in the Dockerized app container:
-  - `docker compose run --rm app sh -lc 'node scripts/init_db.js && npm test -- --runInBand'`
+  - `docker compose run --rm app sh -lc 'npm test -- --runInBand'`
 - Result: `PASS` — 1 suite passed, 6 tests passed, 0 failed.
 - The authenticated checks covered:
   - within-limit request succeeds,
