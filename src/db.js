@@ -7,10 +7,8 @@ const user = process.env.POSTGRES_USER;
 const password = process.env.POSTGRES_PASSWORD;
 const database = process.env.POSTGRES_DB;
 
-const connectionString = `postgres://${user}:${password}@${host}:${port}/${database}`;
-
 const pool = new Pool({
-    connectionString,
+    connectionString: process.env.DATABASE_URL,
 });
 
 pool.on('error', (err) => {
