@@ -63,6 +63,29 @@ class BillingRepository {
         const result = await pool.query(query, [tenantId, idempotencyKey]);
         return result.rows[0] || null;
     }
+
+    async updateSubscriptionStatus(tenantId, planId, status, stripeCustomerId, stripeSubscriptionId) {
+        const query = `
+            UPDATE subscriptions
+            SET plan_id = $1,
+                status = $2,
+                stripe_customer_id = COALESCE($3, stripe_customer_id),
+                stripe_subscription_id = COALESCE($4, stripe_subscription_id)
+            WHERE tenant_id = $5
+        `;
+        await pool.query(query, [planId, status, stripeCustomerId, stripeSubscriptionId, tenantId]);
+    }
+
+    async findTenantByStripeCustomerId(customerId) {
+        const query = `
+            SELECT tenant_id
+            FROM subscriptions
+            WHERE stripe_customer_id = $1
+            LIMIT 1
+        `;
+        const result = await pool.query(query, [customerId]);
+        return result.rows[0] || null;
+    }
 }
 
 module.exports = new BillingRepository();

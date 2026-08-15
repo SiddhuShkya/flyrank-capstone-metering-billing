@@ -61,3 +61,31 @@ This document tracks the progress of the Capstone Project and honestly details t
   - over-limit request returns `429`,
   - exactly-at-limit behavior is enforced correctly,
   - summary endpoint reports total used and quota limit.
+
+## Phase 3: Stripe subscription checkout and webhook flow
+
+**Status:** Completed
+
+**What was done:**
+- Added Stripe integration with `stripe` SDK support and local environment configuration for `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `STRIPE_SUCCESS_URL`, and `STRIPE_CANCEL_URL`.
+- Implemented a checkout endpoint at `POST /api/v1/checkout/create` that creates a Stripe Checkout Session for the active tenant and returns the session URL.
+- Implemented a webhook endpoint at `POST /api/v1/webhooks/stripe` that validates the Stripe signature using the raw request body before JSON parsing.
+- Added webhook processing for `checkout.session.completed` to map the tenant, customer, and subscription information to the project’s existing subscription model.
+- Updated the billing service to enforce the original project design: no new `processed_stripe_events` table was added, and duplicate webhook events are ignored using an in-memory dedupe set instead of a separate database table.
+- Added and verified tests for:
+  - successful Stripe checkout session creation,
+  - invalid webhook signature rejection,
+  - duplicate webhook event handling,
+  - quota and usage behavior continuing to work correctly alongside Stripe updates.
+- Kept the implementation aligned with the original capstone architecture rather than introducing schema drift.
+
+**AI Collaboration Notes:**
+- **How AI helped:** The AI set up the Stripe checkout flow, connected the webhook verification logic to the existing Express app, and ensured the raw-body requirement for Stripe signatures was respected without breaking the rest of the JSON API.
+- **What was refined:** I specifically rejected the idea of adding a new `processed_stripe_events` table because it did not match the system design. The AI adjusted the implementation to use the existing subscription and usage model and kept deduplication lightweight and local to the service layer.
+- **My understanding:** Phase 3 is not just about creating a payment session; the real correctness requirement is secure webhook handling and proper subscription state alignment without adding unnecessary persistence. The webhook must be signature-verified and idempotent, and the app should continue to respect the tenant quota logic in the same way it did before Stripe was introduced.
+
+**Verification Evidence:**
+- Ran the final verification command after the design correction:
+  - `docker compose up -d postgres && npm test -- --runInBand`
+- Result: `PASS` — 1 suite passed, 9 tests passed, 0 failed.
+- The checks covered both the original billing logic and the Stripe checkout/webhook flow, confirming the app is stable in the current design without the extra processed-events table.

@@ -2,13 +2,48 @@ const request = require('supertest');
 const app = require('../app');
 const pool = require('../db');
 
+jest.mock('stripe', () => {
+    const mockStripe = {
+        checkout: {
+            sessions: {
+                create: jest.fn().mockResolvedValue({
+                    id: 'cs_test_123',
+                    url: 'https://checkout.stripe.com/test_session'
+                })
+            }
+        },
+        webhooks: {
+            constructEvent: jest.fn()
+        }
+    };
+
+    return jest.fn(() => mockStripe);
+});
+
 describe('Billing API', () => {
     const tenantIdFree = '550e8400-e29b-41d4-a716-446655440000';
     const tenantIdPro = 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d';
 
     beforeAll(async () => {
-        // Clear any previous usage events for test tenants to have a clean state
         await pool.query('DELETE FROM usage_events WHERE tenant_id IN ($1, $2)', [tenantIdFree, tenantIdPro]);
+        await pool.query(
+            `UPDATE subscriptions
+             SET plan_id = 'free',
+                 status = 'active',
+                 stripe_customer_id = 'cus_test123',
+                 stripe_subscription_id = 'sub_test456'
+             WHERE tenant_id = $1`,
+            [tenantIdFree]
+        );
+        await pool.query(
+            `UPDATE subscriptions
+             SET plan_id = 'pro',
+                 status = 'active',
+                 stripe_customer_id = 'cus_test789',
+                 stripe_subscription_id = 'sub_test012'
+             WHERE tenant_id = $1`,
+            [tenantIdPro]
+        );
     });
 
     afterAll(async () => {
@@ -101,5 +136,96 @@ describe('Billing API', () => {
         expect(response.body.plan).toBe('free');
         expect(response.body.total_tokens_used).toBe(10000); // 300 + 9700
         expect(response.body.quota_limit).toBe(10000);
+    });
+
+    it('should create a Stripe checkout session for a valid tenant', async () => {
+        const response = await request(app)
+            .post('/api/v1/checkout/create')
+            .set('X-Tenant-Id', tenantIdFree)
+            .send({});
+
+        expect(response.status).toBe(200);
+        expect(response.body.checkout_url).toBe('https://checkout.stripe.com/test_session');
+    });
+
+    it('should reject a webhook with an invalid signature', async () => {
+        const rawBody = JSON.stringify({
+            id: 'evt_test_123',
+            type: 'checkout.session.completed',
+            data: {
+                object: {
+                    id: 'cs_test_123',
+                    customer: 'cus_test_123',
+                    subscription: 'sub_test_123',
+                    metadata: { tenant_id: tenantIdFree }
+                }
+            }
+        });
+
+        const response = await request(app)
+            .post('/api/v1/webhooks/stripe')
+            .set('Stripe-Signature', 'invalid-signature')
+            .set('Content-Type', 'application/json')
+            .send(rawBody);
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toMatch(/Invalid Stripe signature/i);
+    });
+
+    it('should ignore duplicate Stripe webhook events', async () => {
+        const StripeLib = require('stripe');
+        const mockedStripe = StripeLib();
+
+        mockedStripe.webhooks.constructEvent.mockReturnValue({
+            id: 'evt_test_duplicate',
+            type: 'checkout.session.completed',
+            data: {
+                object: {
+                    id: 'cs_test_123',
+                    customer: 'cus_test_123',
+                    subscription: 'sub_test_123',
+                    metadata: { tenant_id: tenantIdFree }
+                }
+            }
+        });
+
+        await pool.query(
+            `UPDATE subscriptions
+             SET plan_id = 'free',
+                 status = 'active',
+                 stripe_customer_id = 'cus_test123',
+                 stripe_subscription_id = 'sub_test456'
+             WHERE tenant_id = $1`,
+            [tenantIdFree]
+        );
+
+        const payload = JSON.stringify({
+            id: 'evt_test_duplicate',
+            type: 'checkout.session.completed',
+            data: {
+                object: {
+                    id: 'cs_test_123',
+                    customer: 'cus_test_123',
+                    subscription: 'sub_test_123',
+                    metadata: { tenant_id: tenantIdFree }
+                }
+            }
+        });
+
+        const firstResponse = await request(app)
+            .post('/api/v1/webhooks/stripe')
+            .set('Stripe-Signature', 'valid-signature')
+            .set('Content-Type', 'application/json')
+            .send(payload);
+
+        const secondResponse = await request(app)
+            .post('/api/v1/webhooks/stripe')
+            .set('Stripe-Signature', 'valid-signature')
+            .set('Content-Type', 'application/json')
+            .send(payload);
+
+        expect(firstResponse.status).toBe(200);
+        expect(secondResponse.status).toBe(200);
+        expect(secondResponse.body.duplicate).toBe(true);
     });
 });
