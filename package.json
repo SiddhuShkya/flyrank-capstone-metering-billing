@@ -6,7 +6,16 @@
     "scripts": {
         "start": "node index.js",
         "dev": "node --watch index.js",
-        "test": "jest"
+        "test": "jest",
+        "docker:up": "docker compose up --build",
+        "docker:up:d": "docker compose up --build -d",
+        "docker:down": "docker compose down",
+        "docker:down:v": "docker compose down -v",
+        "docker:stop": "docker compose stop",
+        "docker:restart": "docker compose restart",
+        "docker:logs": "docker compose logs -f",
+        "docker:logs:app": "docker compose logs -f app",
+        "docker:ps": "docker compose ps"
     },
     "dependencies": {
         "dotenv": "^16.4.2",
