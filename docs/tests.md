@@ -196,15 +196,20 @@ With the tenant now sitting at exactly 10 000 tokens used, requests even 1 addit
 <codeblock7>
 
 ```javascript
-it('should show correct usage summary', async () => {
+it('should show correct usage summary with cost', async () => {
     const response = await request(app)
         .get('/api/v1/usage/summary')
         .set('X-Tenant-Id', tenantIdFree);
 
     expect(response.status).toBe(200);
     expect(response.body.plan).toBe('free');
-    expect(response.body.total_tokens_used).toBe(10000);
+    expect(response.body.total_tokens_used).toBe(10000); // 300 + 9700
     expect(response.body.quota_limit).toBe(10000);
+
+    // current_cost_cents must be a non-negative integer
+    expect(typeof response.body.current_cost_cents).toBe('number');
+    expect(Number.isInteger(response.body.current_cost_cents)).toBe(true);
+    expect(response.body.current_cost_cents).toBeGreaterThanOrEqual(0);
 });
 ```
 
@@ -212,9 +217,9 @@ it('should show correct usage summary', async () => {
 
 <codeblock7func7>
 
-**`it('should show correct usage summary')`**
+**`it('should show correct usage summary with cost')`**
 
-Verifies the `GET /api/v1/usage/summary` endpoint reflects the accumulated state: plan is `'free'`, total tokens used is `10 000` (300 + 9 700), and quota limit is `10 000`.
+Verifies the `GET /api/v1/usage/summary` endpoint reflects the accumulated state: plan is `'free'`, total tokens used is `10 000` (300 + 9 700), quota limit is `10 000`, and `current_cost_cents` is a non-negative integer (no longer the placeholder `0` value).
 
 </codeblock7func7>
 
@@ -310,3 +315,60 @@ it('should ignore duplicate Stripe webhook events', async () => {
 Sends the same webhook event (`evt_test_duplicate`) twice. The first call succeeds and processes the event; the second call is recognised as a duplicate via the in-memory `processedStripeEventIds` set and returns `{ received: true, duplicate: true }` without re-processing. Both responses return `200 OK`.
 
 </codeblock10func10>
+
+---
+
+<filename>
+src/tests/pricing.test.js
+</filename>
+
+---
+
+<codeblock11>
+
+```javascript
+describe('BillingService.calculateCost — pinned pricing tests', () => {
+
+    it('should return 0 cost for zero tokens', () => {
+        expect(billingService.calculateCost(0, 0)).toBe(0);
+    });
+
+    it('should price only input tokens correctly', () => {
+        expect(billingService.calculateCost(1_000_000, 0)).toBe(1);
+    });
+
+    it('should price only output tokens correctly', () => {
+        expect(billingService.calculateCost(0, 1_000_000)).toBe(4);
+    });
+
+    it('should price output tokens higher than input tokens for the same quantity', () => {
+        const inputCost  = billingService.calculateCost(1_000_000, 0);
+        const outputCost = billingService.calculateCost(0, 1_000_000);
+        expect(outputCost).toBeGreaterThan(inputCost);
+    });
+
+    it('should price both categories and add them together correctly', () => {
+        expect(billingService.calculateCost(500_000, 500_000)).toBe(2);
+    });
+
+    it('should floor sub-cent remainders, not round them', () => {
+        expect(billingService.calculateCost(999_999, 0)).toBe(0);
+        expect(billingService.calculateCost(1_000_001, 0)).toBe(1);
+    });
+});
+```
+
+</codeblock11>
+
+<codeblock11func11>
+
+**`describe('BillingService.calculateCost')` — Unit Test Suite**
+
+Validates the cost calculation service logic in `src/services/billing.service.js` against micro-cents pricing rules.
+- **Zero tokens** — Cost calculation returns `0` cents.
+- **Input and Output token pricing** — 1,000,000 input tokens cost 1 cent; 1,000,000 output tokens cost 4 cents. Output tokens are priced higher than input tokens.
+- **Combined pricing** — Correctly aggregates input and output tokens (e.g., 500,000 input tokens + 500,000 output tokens cost 2 cents after flooring).
+- **Rounding vs Flooring** — Verifies that any fractional micro-cents that do not amount to a full cent are floored rather than rounded up (e.g., 999,999 input tokens cost 0 cents).
+- **Pinned constants verification** — Assures that the configured pricing constants match the specification and will alert if modified.
+
+</codeblock11func11>

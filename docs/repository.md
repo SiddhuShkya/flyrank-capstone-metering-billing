@@ -202,3 +202,38 @@ Looks up the tenant associated with a given Stripe customer ID. Used when proces
 - **Returns:** `{ tenant_id }` or `null`.
 
 </codeblock6func6>
+
+---
+
+<codeblock7>
+
+```javascript
+async getUsageBreakdown(tenantId) {
+    const query = `
+        SELECT
+            COALESCE(SUM(input_tokens), 0)  AS total_input_tokens,
+            COALESCE(SUM(output_tokens), 0) AS total_output_tokens
+        FROM usage_events
+        WHERE tenant_id = $1
+    `;
+    const result = await pool.query(query, [tenantId]);
+    const row = result.rows[0];
+    return {
+        total_input_tokens:  parseInt(row.total_input_tokens, 10),
+        total_output_tokens: parseInt(row.total_output_tokens, 10),
+    };
+}
+```
+
+</codeblock7>
+
+<codeblock7func7>
+
+**`getUsageBreakdown(tenantId)`**
+
+Retrieves the token usage breakdown (input and output tokens summed separately) for a given tenant. This is used by the service layer to calculate costs accurately according to differing input and output token prices.
+
+- **Parameters:** `tenantId` — the UUID of the tenant.
+- **Returns:** `{ total_input_tokens, total_output_tokens }` — integers representing the input and output token usage totals.
+
+</codeblock7func7>

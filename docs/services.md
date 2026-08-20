@@ -100,13 +100,19 @@ async getUsageSummary(tenantId) {
         throw error;
     }
 
-    const totalUsed = await billingRepository.getTotalUsage(tenantId);
+    // Fetch per-category totals for correct cost calculation
+    const breakdown = await billingRepository.getUsageBreakdown(tenantId);
+
+    const currentCostCents = this.calculateCost(
+        breakdown.total_input_tokens,
+        breakdown.total_output_tokens
+    );
 
     return {
         plan: subscription.plan_id,
-        total_tokens_used: totalUsed,
+        total_tokens_used: breakdown.total_input_tokens + breakdown.total_output_tokens,
         quota_limit: subscription.monthly_token_quota,
-        current_cost_cents: 0 // Will implement in Phase 4
+        current_cost_cents: currentCostCents
     };
 }
 ```
@@ -117,7 +123,7 @@ async getUsageSummary(tenantId) {
 
 **`getUsageSummary(tenantId)`**
 
-Builds a usage summary for a tenant by fetching their active subscription and total token consumption. Returns a structured object suitable for display in a dashboard or API response. `current_cost_cents` is a placeholder, to be implemented in a future phase.
+Builds a usage summary for a tenant by fetching their active subscription, fetching a detailed token usage breakdown (input and output tokens summed separately), and calculating the total cost. Summing input and output tokens prior to applying price rates would produce incorrect results because of their differing rates.
 
 - **Parameters:** `tenantId` — tenant UUID.
 - **Returns:** `{ plan, total_tokens_used, quota_limit, current_cost_cents }`
@@ -229,3 +235,36 @@ Handles incoming Stripe webhook events with in-memory deduplication. Maintains a
 - **Returns:** `{ processed: boolean, duplicate: boolean }`
 
 </codeblock4func4>
+
+---
+
+<codeblock5>
+
+```javascript
+calculateCost(inputTokens, outputTokens) {
+    const microCents =
+        inputTokens * PRICING.INPUT_TOKEN_MICRO_CENTS +
+        outputTokens * PRICING.OUTPUT_TOKEN_MICRO_CENTS;
+
+    // Integer division: truncate sub-cent remainder
+    return Math.floor(microCents / 1_000_000);
+}
+```
+
+</codeblock5>
+
+<codeblock5func5>
+
+**`calculateCost(inputTokens, outputTokens)`**
+
+Calculates the total cost in cents based on the input and output token consumption.
+- Performs calculations using integer-based arithmetic in micro-cents (1 millionth of a cent) to prevent floating-point rounding errors.
+- Divides by `1,000,000` and uses `Math.floor` at the final presentation boundary to truncate fractional sub-cent remainders.
+- Decouples pricing constants into `src/config/pricing.js` to support configuration changes.
+
+- **Parameters:**
+  - `inputTokens` — number of input tokens.
+  - `outputTokens` — number of output tokens.
+- **Returns:** `number` — the final cost in whole cents (integer, floored).
+
+</codeblock5func5>
