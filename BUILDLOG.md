@@ -21,7 +21,7 @@ This document tracks the progress of the Capstone Project and honestly details t
 **Status:** Completed
 
 **What was done:**
-- Created the initial system design document (`DESIGN.md`).
+- Created the initial system design document (`markdowns/DESIGN.md`).
 - Defined the core data model with four main entities: `tenants`, `plans`, `subscriptions`, and `usage_events`, including sample data.
 - Established the metering API contract for `POST /api/v1/generate` and `GET /api/v1/usage/summary`.
 - Clarified the idempotency strategy using a unique database constraint on `(tenant_id, idempotency_key)` to safely handle network retries without double-counting.
@@ -89,3 +89,27 @@ This document tracks the progress of the Capstone Project and honestly details t
   - `docker compose up -d postgres && npm test -- --runInBand`
 - Result: `PASS` — 1 suite passed, 9 tests passed, 0 failed.
 - The checks covered both the original billing logic and the Stripe checkout/webhook flow, confirming the app is stable in the current design without the extra processed-events table.
+
+## Phase 4: Cost calculation and finalization
+
+**Status:** Completed
+
+**What was done:**
+- Implemented the token pricing logic in `src/services/billing.service.js` using integer-based arithmetic in micro-cents to prevent floating-point rounding errors.
+- Added pricing constants to a dedicated configuration file `src/config/pricing.js` to enforce decoupling.
+- Scoped the implementation to a clean 2-column token design (Input and Output tokens) to match the original database schema in `DESIGN.md` and avoid unnecessary DB schema migration.
+- Implemented `getUsageBreakdown()` in `src/repository/billing.repository.js` to fetch input and output token counts separately so they can be priced at different rates.
+- Wired the cost calculation into the `getUsageSummary` service method and summary API response, replacing the placeholder `0` value.
+- Added a dedicated unit test suite `src/tests/pricing.test.js` with 8 pinned tests covering standard input, output, combined pricing, integer rounding/flooring, and constant pinning.
+- Updated the existing integration test suite `src/tests/billing.test.js` to verify that `current_cost_cents` is returned as a valid non-negative integer.
+- Confirmed all 17 tests are passing successfully in local development.
+
+**AI Collaboration Notes:**
+- **How AI helped:** The AI assistant provided a detailed implementation plan and code snippets for Option A (2-column design matching `DESIGN.md` without schema changes). It also helped debug a failing test case in `pricing.test.js` where using 1,000 tokens for input and output both rounded down to 0 cents, causing a test assertion failure. The AI corrected the test inputs to 1,000,000 tokens to ensure the prices survived the integer division division check.
+- **My understanding:** Storing currency as integers (micro-cents) is standard practice in billing engineering. Floating-point division must only happen at the final presentation boundary, and using standard `Math.floor()` ensures sub-cent remainders are truncated safely. By keeping the design constrained to `input_tokens` and `output_tokens`, we successfully completed Phase 4 without introducing database schema drift.
+
+**Verification Evidence:**
+- Ran clean container initialization and test suite:
+  - `docker compose down -v && docker compose up -d && npm test`
+- Result: `PASS` — 2 test suites passed, 17 tests passed total.
+- All unit tests for money calculation and integration tests for route boundaries are green.

@@ -127,7 +127,7 @@ describe('Billing API', () => {
         expect(response.body.error).toMatch(/Quota exceeded/);
     });
 
-    it('should show correct usage summary', async () => {
+    it('should show correct usage summary with cost', async () => {
         const response = await request(app)
             .get('/api/v1/usage/summary')
             .set('X-Tenant-Id', tenantIdFree);
@@ -136,6 +136,11 @@ describe('Billing API', () => {
         expect(response.body.plan).toBe('free');
         expect(response.body.total_tokens_used).toBe(10000); // 300 + 9700
         expect(response.body.quota_limit).toBe(10000);
+
+        // current_cost_cents must be a non-negative integer (no longer the placeholder 0 comment)
+        expect(typeof response.body.current_cost_cents).toBe('number');
+        expect(Number.isInteger(response.body.current_cost_cents)).toBe(true);
+        expect(response.body.current_cost_cents).toBeGreaterThanOrEqual(0);
     });
 
     it('should create a Stripe checkout session for a valid tenant', async () => {

@@ -91,3 +91,38 @@ stripe trigger checkout.session.completed
 ---
 Small, focused README to get contributors running quickly. Open an issue or ask for more details if you'd like expanded docs.
 
+## Architecture
+
+```
+Client ─► POST /api/v1/generate
+            └─► BillingService.recordUsage()
+                  ├─ getActiveSubscription() → 402 if no active plan
+                  ├─ getTotalUsage()         → 429 if quota exceeded
+                  └─ insertUsageEvent()      → idempotency_key deduplicated at DB level
+
+GET /api/v1/usage/summary
+  └─► BillingService.getUsageSummary()
+        ├─ getUsageBreakdown()  → { total_input_tokens, total_output_tokens }
+        └─ calculateCost()      → integer cents (no floats, micro-cent arithmetic)
+
+POST /api/v1/checkout/create  →  Stripe Checkout session (tenant metadata embedded)
+POST /api/v1/webhooks/stripe  →  verify HMAC signature → deduplicate → update plan
+```
+
+## Cost Calculation
+
+Pricing is done in **micro-cents** (integers) to eliminate floating-point rounding errors. Constants are pinned in [`src/config/pricing.js`](src/config/pricing.js):
+
+| Token type   | Rate             |
+|--------------|------------------|
+| Input tokens | 1 micro-cent     |
+| Output tokens| 4 micro-cents    |
+
+Final cost formula: `floor((input × 1 + output × 4) / 1,000,000)` = **whole cents only**
+
+## Limitations
+
+- In-memory Stripe event deduplication — resets on server restart. A production system would persist processed event IDs to the database.
+- `current_cost_cents` reflects all-time cumulative usage, not a calendar billing month (no monthly reset job exists).
+- No invoicing, proration, or overage billing — out of scope per DESIGN.md §2.
+

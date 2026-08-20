@@ -27,6 +27,31 @@ class BillingRepository {
         const result = await pool.query(query, [tenantId]);
         return parseInt(result.rows[0].total_used, 10);
     }
+    
+    /**
+     * Retrieve per-category token totals for a tenant.
+     * Used by the service layer to calculate cost correctly.
+     *
+     * Why not reuse getTotalUsage()?
+     *   getTotalUsage() sums all tokens into one number — fine for quota checks.
+     *   For cost calculation, input and output tokens have different rates,
+     *   so they must be totalled separately before pricing is applied.
+     */
+    async getUsageBreakdown(tenantId) {
+        const query = `
+            SELECT
+                COALESCE(SUM(input_tokens), 0)  AS total_input_tokens,
+                COALESCE(SUM(output_tokens), 0) AS total_output_tokens
+            FROM usage_events
+            WHERE tenant_id = $1
+        `;
+        const result = await pool.query(query, [tenantId]);
+        const row = result.rows[0];
+        return {
+            total_input_tokens:  parseInt(row.total_input_tokens, 10),
+            total_output_tokens: parseInt(row.total_output_tokens, 10),
+        };
+    }
 
     /**
      * Attempt to insert a new usage event.

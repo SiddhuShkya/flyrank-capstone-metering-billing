@@ -1,11 +1,34 @@
 const crypto = require('crypto');
 const Stripe = require('stripe');
 const billingRepository = require('../repository/billing.repository');
+const PRICING = require('../config/pricing');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_fake');
 const processedStripeEventIds = new Set();
 
 class BillingService {
+    /**
+     * Converts token usage into a cost in cents (integer).
+     *
+     * Why micro-cents?
+     *   Token prices are fractions of a cent. If we multiplied in cents directly
+     *   (e.g. 0.000001 cents per token), floating-point math would introduce
+     *   rounding errors. By working in micro-cents (integers) and dividing at
+     *   the very end, the result is always exact and deterministic.
+     *
+     * @param {number} inputTokens   - Number of input tokens
+     * @param {number} outputTokens  - Number of output tokens
+     * @returns {number} cost in whole cents (integer, floored)
+     */
+    calculateCost(inputTokens, outputTokens) {
+        const microCents =
+            inputTokens * PRICING.INPUT_TOKEN_MICRO_CENTS +
+            outputTokens * PRICING.OUTPUT_TOKEN_MICRO_CENTS;
+
+        // Integer division: truncate sub-cent remainder
+        return Math.floor(microCents / 1_000_000);
+    }
+
     /**
      * Records a billable usage event.
      * Enforces idempotency and quota limits.
@@ -16,7 +39,7 @@ class BillingService {
 
         if (!subscription) {
             const error = new Error('Subscription inactive or not found.');
-            error.statusCode = 402; // Payment Required
+            error.statusCode = 402;
             throw error;
         }
 
@@ -27,7 +50,7 @@ class BillingService {
 
         if (currentUsage + totalRequestedTokens > subscription.monthly_token_quota) {
             const error = new Error('Quota exceeded. Upgrade your plan.');
-            error.statusCode = 429; // Too Many Requests
+            error.statusCode = 429;
             throw error;
         }
 
@@ -65,7 +88,11 @@ class BillingService {
     }
 
     /**
-     * Retrieves the usage summary for a tenant.
+     * Retrieves the usage summary for a tenant, including the calculated cost.
+     *
+     * Cost calculation uses per-category token totals so that input and output
+     * tokens can be priced at different rates. Summing them first and applying
+     * one rate would produce wrong results.
      */
     async getUsageSummary(tenantId) {
         const subscription = await billingRepository.getActiveSubscription(tenantId);
@@ -76,13 +103,19 @@ class BillingService {
             throw error;
         }
 
-        const totalUsed = await billingRepository.getTotalUsage(tenantId);
+        // Fetch per-category totals for correct cost calculation
+        const breakdown = await billingRepository.getUsageBreakdown(tenantId);
+
+        const currentCostCents = this.calculateCost(
+            breakdown.total_input_tokens,
+            breakdown.total_output_tokens
+        );
 
         return {
             plan: subscription.plan_id,
-            total_tokens_used: totalUsed,
+            total_tokens_used: breakdown.total_input_tokens + breakdown.total_output_tokens,
             quota_limit: subscription.monthly_token_quota,
-            current_cost_cents: 0 // Will implement in Phase 4
+            current_cost_cents: currentCostCents
         };
     }
 
