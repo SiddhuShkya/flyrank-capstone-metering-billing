@@ -1,5 +1,5 @@
 const billingService = require('../services/billing.service');
-const PRICING = require('../config/pricing');
+const PRICING = require('../config/chat-pricing');
 
 describe('BillingService.calculateCost — pinned pricing tests', () => {
 

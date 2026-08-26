@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const Stripe = require('stripe');
 const billingRepository = require('../repository/billing.repository');
-const PRICING = require('../config/pricing');
+const PRICING = require('../config/chat-pricing');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_fake');
 const processedStripeEventIds = new Set();
