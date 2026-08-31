@@ -16,16 +16,22 @@ class BillingService {
      *   rounding errors. By working in micro-cents (integers) and dividing at
      *   the very end, the result is always exact and deterministic.
      *
-     * @param {number} inputTokens   - Number of input tokens
-     * @param {number} outputTokens  - Number of output tokens
+     * @param {number} inputTokens        - Fresh input tokens
+     * @param {number} cachedInputTokens  - Cached input tokens (cheaper rate)
+     * @param {number} outputTokens       - Generated output tokens
+     * @param {number} reasoningTokens    - Hidden reasoning tokens (priced as output)
      * @returns {number} cost in whole cents (integer, floored)
      */
-    calculateCost(inputTokens, outputTokens) {
+    calculateCost(inputTokens = 0, cachedInputTokens = 0, outputTokens = 0, reasoningTokens = 0) {
+        // Integer division: truncate sub-cent remainder.
+        // Each category is multiplied by its own rate before summing — they cannot
+        // be collapsed into a single rate because cached input is cheaper and
+        // reasoning tokens are priced identically to output tokens (TASK.md §15).
         const microCents =
-            inputTokens * PRICING.INPUT_TOKEN_MICRO_CENTS +
-            outputTokens * PRICING.OUTPUT_TOKEN_MICRO_CENTS;
-
-        // Integer division: truncate sub-cent remainder
+            inputTokens       * PRICING.INPUT_TOKEN_MICRO_CENTS        +
+            cachedInputTokens * PRICING.CACHED_INPUT_TOKEN_MICRO_CENTS +
+            outputTokens      * PRICING.OUTPUT_TOKEN_MICRO_CENTS       +
+            reasoningTokens   * PRICING.REASONING_TOKEN_MICRO_CENTS;
         return Math.floor(microCents / 1_000_000);
     }
 
@@ -103,12 +109,17 @@ class BillingService {
             throw error;
         }
 
-        // Fetch per-category totals for correct cost calculation
+        // Fetch per-category totals for correct cost calculation.
+        // The DB schema stores input_tokens and output_tokens only — cached input
+        // and reasoning tokens are priced via config constants but are not stored
+        // as separate columns (they are out-of-scope per DESIGN.md §2).
         const breakdown = await billingRepository.getUsageBreakdown(tenantId);
 
         const currentCostCents = this.calculateCost(
-            breakdown.total_input_tokens,
-            breakdown.total_output_tokens
+            breakdown.total_input_tokens,   // fresh input
+            0,                              // cached input — not tracked separately in this schema
+            breakdown.total_output_tokens,  // output
+            0                               // reasoning — not tracked separately in this schema
         );
 
         return {

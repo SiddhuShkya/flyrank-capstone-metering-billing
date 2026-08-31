@@ -9,8 +9,10 @@
  * separately per category because input and output tokens have different rates.
  */
 const PRICING = {
-    INPUT_TOKEN_MICRO_CENTS: 1,   // 1 micro-cent per input token
-    OUTPUT_TOKEN_MICRO_CENTS: 4,  // 4 micro-cents per output token (generation costs more)
+    INPUT_TOKEN_MICRO_CENTS: 1,  // 1 micro-cent per fresh input token
+    CACHED_INPUT_TOKEN_MICRO_CENTS: 0,  // cached input is cheaper
+    OUTPUT_TOKEN_MICRO_CENTS: 4,  // 4 micro-cents per output token
+    REASONING_TOKEN_MICRO_CENTS: 4,  // reasoning tokens count as output
 };
 
 module.exports = PRICING;
