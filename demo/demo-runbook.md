@@ -183,14 +183,20 @@ curl -s -X POST http://localhost:3000/api/v1/webhooks/stripe \
 
 > **Talking point:** "Stripe can re-deliver the same webhook on retries. Let's replay it."
 
-In Terminal 2, copy the event ID (e.g. `evt_1...`) from the `checkout.session.completed` line, then:
+In Terminal 2 (where `stripe listen` is running), locate the `checkout.session.completed` event line and copy its Event ID (e.g., `evt_3...` or `evt_1...`).
+
+Then in Terminal 3, resend that specific event:
 
 ```bash
-stripe events resend <evt_id_from_terminal_2>
+stripe events resend <evt_id_from_checkout_session_completed>
 ```
 
-Watch the app logs — the server responds:
+**Terminal 3 Output:** Stripe CLI prints the Event JSON object confirming the resend request (showing `object: "event"`, `id: "evt_..."`, `type: "checkout.session.completed"`).
+
+**Terminal 2 (`stripe listen`) / Server Logs Output:**
+The listener forwards the resent event to your endpoint. Because this event ID was already processed in Step 4, your backend recognizes it as a duplicate and returns:
 ```json
+200 OK
 { "received": true, "duplicate": true }
 ```
 
