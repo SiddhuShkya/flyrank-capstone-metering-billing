@@ -83,14 +83,6 @@ stripe trigger checkout.session.completed
 - Stripe client wrapper: `src/stripe.js`
 - SQL migrations / seeds: `db/`
 
-## Next steps
-
-- Want a one-line script to create a `.env` for local dev? I can add it.
-- Want me to run the test suite and report results?
-
----
-Small, focused README to get contributors running quickly. Open an issue or ask for more details if you'd like expanded docs.
-
 ## Demo
 
 See [`demo/demo-runbook.md`](demo/demo-runbook.md) for a step-by-step curl walkthrough covering:
