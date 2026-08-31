@@ -30,6 +30,15 @@ npm run dev
 
 The app listens on `http://localhost:3000` by default.
 
+4. Seed demo data (optional, for demo flow):
+
+```bash
+# With the database running, load the demo tenant and pre-seeded usage events
+docker compose exec -T postgres psql -U postgres -d billing -f /docker-entrypoint-initdb.d/02-insert-data.sql
+```
+
+This creates a `Demo Tenant` at 97% of its Free plan quota — ready for the live demo flow in `demo/demo-runbook.md`.
+
 ## Tests
 
 Ensure Postgres is running, then:
@@ -90,6 +99,21 @@ stripe trigger checkout.session.completed
 
 ---
 Small, focused README to get contributors running quickly. Open an issue or ask for more details if you'd like expanded docs.
+
+## Demo
+
+See [`demo/demo-runbook.md`](demo/demo-runbook.md) for a step-by-step curl walkthrough covering:
+- Billable call at the quota boundary
+- Idempotent retry (no double-count)
+- 429 quota exceeded
+- Stripe upgrade flow (Free → Pro)
+- Forged webhook rejection
+- Duplicate webhook deduplication
+- Usage summary after upgrade
+
+## Submission
+
+See [`capstone.yaml`](capstone.yaml) for the machine-readable submission manifest (run / seed / test commands, endpoints).
 
 ## Architecture
 

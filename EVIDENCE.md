@@ -63,10 +63,10 @@ The boundary condition checks and status codes are verified by the following int
 - [x] Pricing constants are pinned and covered by tests.
 
 ### Proof:
-Unit tests in `src/tests/pricing.test.js` verify integer-based money calculations using micro-cents to prevent floating-point rounding errors.
+Unit tests in `src/tests/chat-pricing.test.js` verify integer-based money calculations using micro-cents to prevent floating-point rounding errors.
 
 ```bash
-PASS  src/tests/pricing.test.js
+PASS  src/tests/chat-pricing.test.js
   BillingService.calculateCost — pinned pricing tests
     ✓ should return 0 cost for zero tokens
     ✓ should price only input tokens correctly
@@ -124,3 +124,73 @@ Ran all test suites.
 ### Screenshot:
 
 <img src="./screenshots/full-test.png" alt="image" width="100%"/>
+
+---
+
+## 6. Phase 5 — Demo Flow Evidence
+
+### Checklist:
+- [x] Demo tenant seeded at 97% of Free plan quota (9 700 / 10 000 tokens).
+- [x] Quota boundary: first new call (300 tokens) succeeds; next call returns 429.
+- [x] Idempotent retry: same request + same idempotency key returns `idempotent_reply: true`.
+- [x] Forged webhook rejected with 400.
+- [x] All 19 tests pass after Phase 5 changes.
+
+### Proof — Quota boundary and idempotency (live curl transcript):
+
+**Call 1 — hits exact limit (300 tokens remaining):**
+```bash
+curl -s -X POST http://localhost:3000/api/v1/generate \
+  -H "X-Tenant-Id: d0000000-0000-0000-0000-000000000001" \
+  -H "Idempotency-Key: demo-live-1" \
+  -d '{"input_tokens": 200, "output_tokens": 100}' | jq
+```
+```json
+{ "success": true, "event_id": "...", "tokens_used": 300 }
+```
+
+**Call 2 — idempotent retry (same key, no double-count):**
+```bash
+# Same curl as above — repeated
+```
+```json
+{ "success": true, "event_id": "...", "tokens_used": 300, "idempotent_reply": true }
+```
+
+**Call 3 — over-limit (new idempotency key):**
+```bash
+curl -s -X POST http://localhost:3000/api/v1/generate \
+  -H "X-Tenant-Id: d0000000-0000-0000-0000-000000000001" \
+  -H "Idempotency-Key: demo-live-2" \
+  -d '{"input_tokens": 1, "output_tokens": 0}' | jq
+```
+```json
+{ "error": "Quota exceeded. Upgrade your plan." }
+```
+HTTP Status: **429**
+
+### Proof — Forged webhook rejection:
+```bash
+curl -s -X POST http://localhost:3000/api/v1/webhooks/stripe \
+  -H "Stripe-Signature: t=1234,v1=badsignature" \
+  -d '{"type": "checkout.session.completed"}' | jq
+```
+```json
+{ "error": "Invalid signature." }
+```
+HTTP Status: **400**
+
+### Proof — Full test suite (19 tests, Phase 5):
+
+```text
+> flyrank-capstone-metering-billing@1.0.0 test
+> jest --runInBand
+
+ PASS  src/tests/chat-pricing.test.js
+ PASS  src/tests/billing.test.js
+
+Test Suites: 2 passed, 2 total
+Tests:       19 passed, 19 total
+Snapshots:   0 total
+Time:        0.616 s
+```

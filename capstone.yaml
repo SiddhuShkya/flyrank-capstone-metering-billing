@@ -1,0 +1,21 @@
+# Capstone submission manifest — read by the FlyRank evaluator (TASK.md §11)
+# All commands must work on a clean machine after `git clone` + `cp .env.example .env`
+
+# One command that boots the full system (app + database)
+run: docker compose up -d
+
+# One command that loads demo seed data into a running database
+seed: docker compose exec -T postgres psql -U postgres -d billing -f /docker-entrypoint-initdb.d/02-insert-data.sql
+
+# One command that runs the full test suite (requires Postgres to be running)
+test: npm test
+
+# Base URL of the running service
+base_url: http://localhost:3000
+
+# API endpoints exposed by the service
+endpoints:
+  - POST /api/v1/generate          # billable action: records usage, enforces quota
+  - GET  /api/v1/usage/summary     # usage rollup: used / limit / cost per tenant
+  - POST /api/v1/checkout/create   # creates a Stripe Checkout session for upgrade
+  - POST /api/v1/webhooks/stripe   # Stripe webhook: signature-verified, deduplicated

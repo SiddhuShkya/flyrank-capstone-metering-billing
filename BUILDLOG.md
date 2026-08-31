@@ -113,3 +113,31 @@ This document tracks the progress of the Capstone Project and honestly details t
   - `docker compose down -v && docker compose up -d && npm test`
 - Result: `PASS` — 2 test suites passed, 17 tests passed total.
 - All unit tests for money calculation and integration tests for route boundaries are green.
+
+## Phase 5: Demo preparation and polish
+
+**Status:** Completed
+
+**What was done:**
+- Identified a gap: `TASK.md §6` and PROBE 5 require pricing for *cached input tokens* and *reasoning tokens*, which were missing from `src/config/chat-pricing.js`.
+- Added `CACHED_INPUT_TOKEN_MICRO_CENTS` (0 micro-cents — simplified rate, documented as a scope limitation per DESIGN.md §2) and `REASONING_TOKEN_MICRO_CENTS` (4 micro-cents, same as output per TASK.md §15).
+- Extended `calculateCost()` in `billing.service.js` to accept all 4 token categories with default=0 so existing callers were not broken.
+- Fixed a positional argument bug in `getUsageSummary()` where `output_tokens` was landing in the `cachedInputTokens` slot after the signature change.
+- Updated all existing pricing tests to use the explicit 4-argument call form.
+- Added 2 new pinned tests: reasoning tokens cost the same as output tokens; cached input costs ≤ fresh input.
+- Added a `Demo Tenant` to `db/02-insert-data.sql` pre-seeded at 9 700 / 10 000 tokens (97% of Free plan limit) so the quota boundary fires on the second demo call.
+- Created `demo/demo-runbook.md` — a 7-step curl-by-curl runbook mirroring the §13 demo flow exactly, with expected responses for every step.
+- Created `capstone.yaml` — the machine-readable submission manifest required by §11 (`run:`, `seed:`, `test:`, `base_url:`, `endpoints:`).
+- Polished `README.md`: added an explicit seed step and replaced the stale "Next steps" placeholder with real links to `demo/demo-runbook.md` and `capstone.yaml`.
+- Added Phase 5 evidence section to `EVIDENCE.md` with curl transcripts for the quota boundary, idempotent retry, 429, and forged webhook rejection.
+
+**AI Collaboration Notes:**
+- **How AI helped:** The AI identified the PROBE 5 gap before implementation started, diagnosed the positional-argument bug in `getUsageSummary()` introduced by the signature change, and generated all Phase 5 deliverables (seed SQL, runbook, capstone.yaml, README edits, EVIDENCE.md update).
+- **What was refined:** I noticed the `CACHED_INPUT_TOKEN_MICRO_CENTS = 0` value is a simplification. The AI added a comment in both the config and the test explaining this is intentional (sub-micro-cent rates would require a higher scale unit — out of scope per DESIGN.md §2). This keeps the test honest without misrepresenting the system's capabilities.
+- **My understanding:** Phase 5 is not just "add a seed script." The real work is making sure every Definition-of-Done checkbox from TASK.md §6 has concrete, reviewable proof — curl transcripts, test output, and a runbook someone else can follow. The `capstone.yaml` is especially easy to miss but costs points in the Layer 1 machine check if absent.
+
+**Verification Evidence:**
+- Test suite run after all Phase 5 changes:
+  - `npm test -- --runInBand`
+- Result: `PASS` — 2 test suites passed, **19 tests passed total** (up from 17).
+- Submission pack check: `ls README.md capstone.yaml EVIDENCE.md BUILDLOG.md .env.example` — all 5 files present.
