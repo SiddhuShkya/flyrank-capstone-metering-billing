@@ -9,6 +9,7 @@ src/tests/billing.test.js
 <codeblock1>
 
 ```javascript
+
 describe('Billing API', () => {
     const tenantIdFree = '550e8400-e29b-41d4-a716-446655440000';
     const tenantIdPro = 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d';
@@ -36,6 +37,7 @@ describe('Billing API', () => {
     afterAll(async () => {
         await pool.end();
     });
+})
 ```
 
 </codeblock1>
@@ -319,7 +321,7 @@ Sends the same webhook event (`evt_test_duplicate`) twice. The first call succee
 ---
 
 <filename>
-src/tests/pricing.test.js
+src/tests/chat-pricing.test.js
 </filename>
 
 ---
