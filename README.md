@@ -126,14 +126,17 @@ POST /api/v1/webhooks/stripe  →  verify HMAC signature → deduplicate → upd
 
 ## Cost Calculation
 
-Pricing is done in **micro-cents** (integers) to eliminate floating-point rounding errors. Constants are pinned in [`src/config/pricing.js`](src/config/pricing.js):
+Pricing is calculated in **micro-cents** (integers) to eliminate floating-point rounding errors. Constants are pinned in [`src/config/chat-pricing.js`](src/config/chat-pricing.js):
 
-| Token type   | Rate             |
-|--------------|------------------|
-| Input tokens | 1 micro-cent     |
-| Output tokens| 4 micro-cents    |
+| Token Type | Rate | Description |
+|---|---|---|
+| **Input tokens** | 1 micro-cent | Fresh prompt input tokens |
+| **Cached input tokens** | 0 micro-cents | Context cached input tokens (cheaper rate) |
+| **Output tokens** | 4 micro-cents | Generated output tokens |
+| **Reasoning tokens** | 4 micro-cents | Hidden thinking tokens (priced as output per TASK.md §15) |
 
-Final cost formula: `floor((input × 1 + output × 4) / 1,000,000)` = **whole cents only**
+Final cost formula (whole cents only):
+`floor((input × 1 + cached_input × 0 + output × 4 + reasoning × 4) / 1,000,000)`
 
 ## Limitations
 
