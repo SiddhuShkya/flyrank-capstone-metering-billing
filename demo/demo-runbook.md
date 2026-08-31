@@ -122,6 +122,7 @@ curl -s -X POST http://localhost:3000/api/v1/generate \
 ```bash
 curl -s -X POST http://localhost:3000/api/v1/checkout/create \
   -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: d0000000-0000-0000-0000-000000000001" \
   -d '{"tenantId": "d0000000-0000-0000-0000-000000000001"}' | jq
 ```
 

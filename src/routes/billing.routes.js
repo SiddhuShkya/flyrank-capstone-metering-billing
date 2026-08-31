@@ -66,17 +66,19 @@ router.get('/usage/summary', async (req, res) => {
 
 router.post('/checkout/create', async (req, res) => {
     try {
-        const tenantId = req.headers['x-tenant-id'];
+        const tenantId = req.headers['x-tenant-id'] || (req.body && (req.body.tenantId || req.body.tenant_id));
 
         if (!tenantId) {
             return res.status(400).json({
-                error: 'Missing required header: X-Tenant-Id'
+                error: 'Missing required tenant ID (provide X-Tenant-Id header or tenantId in body)'
             });
         }
 
         const session = await billingService.createCheckoutSession(tenantId);
         return res.status(200).json({
+            id: session.id,
             session_id: session.id,
+            url: session.url,
             checkout_url: session.url
         });
     } catch (error) {
