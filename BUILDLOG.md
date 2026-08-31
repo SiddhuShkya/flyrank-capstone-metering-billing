@@ -119,25 +119,39 @@ This document tracks the progress of the Capstone Project and honestly details t
 **Status:** Completed
 
 **What was done:**
-- Identified a gap: `TASK.md §6` and PROBE 5 require pricing for *cached input tokens* and *reasoning tokens*, which were missing from `src/config/chat-pricing.js`.
-- Added `CACHED_INPUT_TOKEN_MICRO_CENTS` (0 micro-cents — simplified rate, documented as a scope limitation per DESIGN.md §2) and `REASONING_TOKEN_MICRO_CENTS` (4 micro-cents, same as output per TASK.md §15).
-- Extended `calculateCost()` in `billing.service.js` to accept all 4 token categories with default=0 so existing callers were not broken.
-- Fixed a positional argument bug in `getUsageSummary()` where `output_tokens` was landing in the `cachedInputTokens` slot after the signature change.
-- Updated all existing pricing tests to use the explicit 4-argument call form.
-- Added 2 new pinned tests: reasoning tokens cost the same as output tokens; cached input costs ≤ fresh input.
-- Added a `Demo Tenant` to `db/02-insert-data.sql` pre-seeded at 9 700 / 10 000 tokens (97% of Free plan limit) so the quota boundary fires on the second demo call.
-- Created `demo/demo-runbook.md` — a 7-step curl-by-curl runbook mirroring the §13 demo flow exactly, with expected responses for every step.
-- Created `capstone.yaml` — the machine-readable submission manifest required by §11 (`run:`, `seed:`, `test:`, `base_url:`, `endpoints:`).
-- Polished `README.md`: added an explicit seed step and replaced the stale "Next steps" placeholder with real links to `demo/demo-runbook.md` and `capstone.yaml`.
-- Added Phase 5 evidence section to `EVIDENCE.md` with curl transcripts for the quota boundary, idempotent retry, 429, and forged webhook rejection.
+- **Pricing Constants & Token Types:**
+  - Identified a gap in `TASK.md §6` and PROBE 5 requiring pricing for *cached input tokens* and *reasoning tokens*, missing from `src/config/chat-pricing.js`.
+  - Added `CACHED_INPUT_TOKEN_MICRO_CENTS` (0 micro-cents — documented simplification per DESIGN.md §2) and `REASONING_TOKEN_MICRO_CENTS` (4 micro-cents, matching output per TASK.md §15).
+  - Extended `calculateCost()` in `billing.service.js` to accept 4 token categories with default=0 parameters.
+  - Fixed a positional argument alignment issue in `getUsageSummary()`.
+  - Added 2 new pinned unit tests (19 total tests across 2 suites).
+
+- **Idempotency Pre-Check Order Fix:**
+  - Discovered a subtle boundary bug during live demo rehearsal: quota checking was executing *before* checking for existing idempotency keys.
+  - When retrying an accepted request at the exact quota boundary (10 000 / 10 000 tokens), the retry call re-added requested tokens (10 300) and threw `429 Quota Exceeded` instead of returning the cached `{ idempotent_reply: true }`.
+  - **Fix:** Re-ordered `recordUsage()` to check `getUsageEventByIdempotencyKey()` first, returning cached responses immediately without double-counting tokens against quota limits.
+
+- **Stripe Checkout & Redirect Landing Pages:**
+  - Added `GET /success` and `GET /cancel` HTML endpoints in `src/app.js` so browser redirects after Stripe Checkout display a clean landing page instead of Express 404 errors.
+  - Updated `POST /api/v1/checkout/create` in `src/routes/billing.routes.js` to extract `tenantId` from either `X-Tenant-Id` headers or `tenantId`/`tenant_id` JSON body parameters.
+
+- **Seed Data & Demo Runbook:**
+  - Added `Demo Tenant` (`d0000000-0000-0000-0000-000000000001`) to `db/02-insert-data.sql` pre-seeded at 9 700 / 10 000 tokens (97% quota) for live boundary testing.
+  - Created `demo/demo-runbook.md`: a 7-step curl-by-curl runbook mirroring §13 demo moments, including exact form inputs for Stripe test cards (`4242...`) and clear terminal output explanations (distinguishing Terminal 3 CLI responses from Terminal 2 listener webhook logs).
+
+- **Submission Pack & Docker-First Workflow:**
+  - Created `capstone.yaml` submission manifest (`run:`, `seed:`, `test:`, `base_url:`, `endpoints:`).
+  - Configured `docker-compose.yml` with `- ./src:/app/src` volume mounting for live code syncing inside containers.
+  - Updated `README.md` and `.env.example` to prioritize single-command Docker deployment (`docker compose up -d`).
 
 **AI Collaboration Notes:**
-- **How AI helped:** The AI identified the PROBE 5 gap before implementation started, diagnosed the positional-argument bug in `getUsageSummary()` introduced by the signature change, and generated all Phase 5 deliverables (seed SQL, runbook, capstone.yaml, README edits, EVIDENCE.md update).
-- **What was refined:** I noticed the `CACHED_INPUT_TOKEN_MICRO_CENTS = 0` value is a simplification. The AI added a comment in both the config and the test explaining this is intentional (sub-micro-cent rates would require a higher scale unit — out of scope per DESIGN.md §2). This keeps the test honest without misrepresenting the system's capabilities.
-- **My understanding:** Phase 5 is not just "add a seed script." The real work is making sure every Definition-of-Done checkbox from TASK.md §6 has concrete, reviewable proof — curl transcripts, test output, and a runbook someone else can follow. The `capstone.yaml` is especially easy to miss but costs points in the Layer 1 machine check if absent.
+- **How AI helped:** The AI identified the PROBE 5 pricing constants gap, diagnosed the idempotency-order boundary bug during curl testing, added the missing `/success` landing routes, and authored the submission manifest (`capstone.yaml`) and demo runbook.
+- **What was refined:** When testing retries at the quota boundary, we noticed the retry returned 429 instead of an idempotent response. The AI traced this to the execution order in `recordUsage()` and fixed it by checking the database idempotency key before running quota arithmetic. The AI also clarified the Stripe CLI output behavior in `demo-runbook.md` after testing revealed Terminal 3 prints Stripe API event objects while Terminal 2 receives the backend's duplicate response JSON.
+- **My understanding:** Phase 5 is about system hardening and presentation. Catching edge cases like boundary retry ordering and missing success redirect routes ensures the backend functions reliably under evaluator probes and live demonstration.
 
 **Verification Evidence:**
-- Test suite run after all Phase 5 changes:
-  - `npm test -- --runInBand`
-- Result: `PASS` — 2 test suites passed, **19 tests passed total** (up from 17).
-- Submission pack check: `ls README.md capstone.yaml EVIDENCE.md BUILDLOG.md .env.example` — all 5 files present.
+- Full Jest test suite execution:
+  - `docker compose exec app npm test` (or `npm test -- --runInBand`)
+- Result: `PASS` — 2 test suites passed, **19 tests passed total** (0 failures).
+- Complete submission pack check (`ls README.md capstone.yaml EVIDENCE.md BUILDLOG.md .env.example`): All 5 required submission files present.
+
