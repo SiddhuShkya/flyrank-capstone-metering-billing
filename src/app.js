@@ -16,6 +16,33 @@ app.get('/', (req, res) => {
     });
 });
 
+app.get('/success', (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+            <head><title>Payment Successful</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f4f6f8;">
+                <h1 style="color: #2e7d32;">Payment Successful!</h1>
+                <p>Your subscription upgrade has been completed in Stripe test mode.</p>
+                <p>You can close this tab and return to the terminal.</p>
+            </body>
+        </html>
+    `);
+});
+
+app.get('/cancel', (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+            <head><title>Payment Canceled</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f4f6f8;">
+                <h1 style="color: #c62828;">Payment Canceled</h1>
+                <p>No charges were made and your subscription remains unchanged.</p>
+            </body>
+        </html>
+    `);
+});
+
 app.get('/health', async (req, res) => {
     try {
         const result = await pool.query('SELECT NOW()');

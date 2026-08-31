@@ -129,15 +129,29 @@ curl -s -X POST http://localhost:3000/api/v1/checkout/create \
 **Expected response (200 OK):**
 ```json
 {
-  "id": "cs_test_...",
-  "url": "https://checkout.stripe.com/c/pay/cs_test_..."
+  "id": "cs_test_a1b2c3...",
+  "session_id": "cs_test_a1b2c3...",
+  "url": "https://checkout.stripe.com/c/pay/cs_test_a1b2c3...",
+  "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_a1b2c3..."
 }
 ```
 
-1. Open the `url` in a browser.
-2. Use test card `4242 4242 4242 4242`, any future expiry, any CVC.
-3. Complete the checkout.
-4. Watch Terminal 2 — the Stripe CLI shows `checkout.session.completed` forwarded and a `200` from your server.
+### Completing the Checkout Page (Browser Walkthrough):
+
+1. **Open the Checkout URL:** Copy the `url` or `checkout_url` from the JSON response and open it in your browser.
+2. **Fill in the Stripe Test Mode fields:**
+   - **Email:** Enter any email address (e.g., `demo@example.com` or your Gmail).
+   - **Card Information:**
+     - **Card Number:** `4242 4242 4242 4242` (Stripe standard test card)
+     - **Expiration Date:** Any future date (e.g., `12 / 30`)
+     - **CVC:** Any 3 digits (e.g., `123`)
+   - **Name on Card:** Any name (e.g., `Demo User`)
+   - **Country / Billing ZIP:** Select any country (e.g., `United States`) and ZIP (e.g., `10001`)
+3. **Click "Subscribe" / "Pay":**
+   - Stripe completes the test transaction without charging real money.
+   - Your browser will automatically redirect to `http://localhost:3000/success` displaying a green **"Payment Successful!"** page.
+4. **Verify Webhook Delivery:**
+   - Watch Terminal 2 — the Stripe CLI forwards the `checkout.session.completed` webhook event to `http://localhost:3000/api/v1/webhooks/stripe` and receives `200 OK`.
 
 > "The webhook fires, the signature is verified, and the tenant's plan flips from Free to Pro."
 
