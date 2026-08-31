@@ -5,7 +5,8 @@
 run: docker compose up -d
 
 # One command that loads demo seed data into a running database
-seed: docker compose exec -T postgres psql -U postgres -d billing -f /docker-entrypoint-initdb.d/02-insert-data.sql
+seed: docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f /docker-entrypoint-initdb.d/02-insert-data.sql'
+
 
 # One command that runs the full test suite (app container must be running)
 test: docker compose exec -T app npm test
