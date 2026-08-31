@@ -5,67 +5,58 @@ A small backend service for tracking usage, metering, and testing Stripe-based b
 ## Quick start
 
 Prerequisites:
-- `node` (v18+ recommended)
-- `npm`
-- `docker` and `docker-compose` (for local Postgres)
+- `docker` and `docker compose`
+- Stripe CLI (for local webhook testing) — [install guide](https://docs.stripe.com/cli)
 
-1. Copy the example env and edit as needed:
+1. Copy the example env and fill in your Stripe test keys:
 
 ```bash
 cp .env.example .env
+# Edit .env: set STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_ID
 ```
 
-2. Start the database (recommended):
+2. Boot the full stack (Postgres + app):
 
 ```bash
-docker compose up -d postgres
+docker compose up -d
 ```
 
-3. Install dependencies and run the app locally:
+The app starts at **http://localhost:3000**. The database schema and seed data (including a Demo Tenant at 97% quota) are loaded automatically.
 
-```bash
-npm install
-npm run dev
-```
-
-The app listens on `http://localhost:3000` by default.
-
-4. Seed demo data (optional, for demo flow):
-
-```bash
-# With the database running, load the demo tenant and pre-seeded usage events
-docker compose exec -T postgres psql -U postgres -d billing -f /docker-entrypoint-initdb.d/02-insert-data.sql
-```
-
-This creates a `Demo Tenant` at 97% of its Free plan quota — ready for the live demo flow in `demo/demo-runbook.md`.
+> **That's it.** No `npm install`, no local Node.js required.
 
 ## Tests
 
-Ensure Postgres is running, then:
+Run the test suite against the running database:
 
 ```bash
-npm test
+docker compose exec app npm test
 ```
 
-## Important environment variables
+## Environment variables
 
-Required (set in your `.env`):
-- `DATABASE_URL` or the Postgres pieces: `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
-- `STRIPE_SECRET_KEY` (test key, `sk_test_...`)
+All variables are read by `docker-compose.yml` from your `.env` file and injected into the containers. See `.env.example` for the full list with descriptions.
 
-Optional for webhook testing:
-- `STRIPE_WEBHOOK_SECRET` (from Stripe CLI or Dashboard)
-- `STRIPE_PRICE_ID` (a recurring price id for subscription tests)
+Required:
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` — database credentials
+- `STRIPE_SECRET_KEY` — Stripe test key (`sk_test_...`)
 
-The project reads Postgres config from `DATABASE_URL` if present; otherwise you can set the `POSTGRES_*` variables used by the local Docker compose file.
+Required for webhook testing:
+- `STRIPE_WEBHOOK_SECRET` — from `stripe listen` output (`whsec_...`)
+- `STRIPE_PRICE_ID` — a recurring price ID from your Stripe test dashboard
+
+> `DATABASE_URL` is set automatically by docker-compose (`postgres://user:pass@postgres:5432/db`). You do not need to set it manually.
 
 ## Common commands
 
-- Start app: `npm start`
-- Dev with watch: `npm run dev`
-- Run tests: `npm test`
-- Bring up full stack (build): `npm run docker:up` (uses `docker compose`)
-- Stop and remove volumes: `npm run docker:down:v`
+| Command | What it does |
+|---|---|
+| `docker compose up -d` | Start the full stack (build if needed) |
+| `docker compose down` | Stop containers (keeps data volume) |
+| `docker compose down -v` | Stop + delete database (fresh start) |
+| `docker compose build --no-cache` | Rebuild the app image after code changes |
+| `docker compose exec app npm test` | Run the test suite inside the container |
+| `docker compose logs -f app` | Tail the app logs |
 
 ## Stripe (local testing)
 

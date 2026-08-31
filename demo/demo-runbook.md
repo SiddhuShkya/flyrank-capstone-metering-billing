@@ -20,24 +20,26 @@
 Run this **every time** before rehearsing or presenting:
 
 ```bash
-# Terminal 1 — tear down any previous state and start fresh
+# Terminal 1 — tear down any previous state and boot the full stack
 docker compose down -v && docker compose up -d
-
-# Wait ~5 seconds for Postgres to initialise, then start the app
-npm run dev
 ```
 
+This starts both Postgres and the app container. The database schema and seed data (including the Demo Tenant) are loaded automatically by the Postgres init scripts. The app is available at **http://localhost:3000** within ~10 seconds.
+
+> **Check it's up:** `curl -s http://localhost:3000/api/v1/usage/summary -H "X-Tenant-Id: d0000000-0000-0000-0000-000000000001" | jq`
+
 ```bash
-# Terminal 2 — forward Stripe webhooks to your local server
+# Terminal 2 — forward Stripe webhooks to your running container
 stripe listen --forward-to localhost:3000/api/v1/webhooks/stripe
 ```
 
-Copy the `whsec_...` signing secret printed by the CLI into `STRIPE_WEBHOOK_SECRET` in your `.env` if you haven't already, then restart the app.
+> Make sure `STRIPE_WEBHOOK_SECRET` in your `.env` matches the `whsec_...` value printed by the CLI. The app container reads it automatically from `.env` via docker-compose.
 
 **Demo Tenant ID:** `d0000000-0000-0000-0000-000000000001`  
 **Pre-seeded usage:** 9 700 / 10 000 tokens (300 tokens remaining)
 
 ---
+
 
 ## Step 1 — Billable call that hits the exact quota limit
 

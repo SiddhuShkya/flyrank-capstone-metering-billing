@@ -7,8 +7,8 @@ run: docker compose up -d
 # One command that loads demo seed data into a running database
 seed: docker compose exec -T postgres psql -U postgres -d billing -f /docker-entrypoint-initdb.d/02-insert-data.sql
 
-# One command that runs the full test suite (requires Postgres to be running)
-test: npm test
+# One command that runs the full test suite (app container must be running)
+test: docker compose exec -T app npm test
 
 # Base URL of the running service
 base_url: http://localhost:3000
