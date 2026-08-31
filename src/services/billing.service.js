@@ -40,7 +40,20 @@ class BillingService {
      * Enforces idempotency and quota limits.
      */
     async recordUsage(tenantId, idempotencyKey, inputTokens, outputTokens) {
-        // 1. Get active subscription
+        // 1. Idempotency pre-check: if request was already processed, return cached response immediately.
+        // This ensures retries at or near the quota boundary return the idempotent reply
+        // without double-counting requested tokens against current usage.
+        const existingEvent = await billingRepository.getUsageEventByIdempotencyKey(tenantId, idempotencyKey);
+        if (existingEvent) {
+            return {
+                success: true,
+                event_id: existingEvent.id,
+                tokens_used: existingEvent.input_tokens + existingEvent.output_tokens,
+                idempotent_reply: true
+            };
+        }
+
+        // 2. Get active subscription
         const subscription = await billingRepository.getActiveSubscription(tenantId);
 
         if (!subscription) {
@@ -51,7 +64,7 @@ class BillingService {
 
         const totalRequestedTokens = inputTokens + outputTokens;
 
-        // 2. Check quota
+        // 3. Check quota
         const currentUsage = await billingRepository.getTotalUsage(tenantId);
 
         if (currentUsage + totalRequestedTokens > subscription.monthly_token_quota) {
@@ -60,7 +73,7 @@ class BillingService {
             throw error;
         }
 
-        // 3. Attempt to record the event
+        // 4. Attempt to record the event
         const eventId = crypto.randomUUID();
 
         try {
@@ -78,13 +91,13 @@ class BillingService {
             };
         } catch (error) {
             if (error.code === '23505') {
-                // Idempotency: Return the existing event
-                const existingEvent = await billingRepository.getUsageEventByIdempotencyKey(tenantId, idempotencyKey);
-                if (existingEvent) {
+                // Concurrent retry fallback
+                const concurrentEvent = await billingRepository.getUsageEventByIdempotencyKey(tenantId, idempotencyKey);
+                if (concurrentEvent) {
                     return {
                         success: true,
-                        event_id: existingEvent.id,
-                        tokens_used: existingEvent.input_tokens + existingEvent.output_tokens,
+                        event_id: concurrentEvent.id,
+                        tokens_used: concurrentEvent.input_tokens + concurrentEvent.output_tokens,
                         idempotent_reply: true
                     };
                 }
