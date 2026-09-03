@@ -15,7 +15,7 @@ base_url: http://localhost:3000
 
 # API endpoints exposed by the service
 endpoints:
-  - POST /api/v1/generate          # billable action: records usage, enforces quota
-  - GET  /api/v1/usage/summary     # usage rollup: used / limit / cost per tenant
-  - POST /api/v1/checkout/create   # creates a Stripe Checkout session for upgrade
-  - POST /api/v1/webhooks/stripe   # Stripe webhook: signature-verified, deduplicated
+  - POST /api/v1/generate # billable action: records usage, enforces quota
+  - GET  /api/v1/usage/summary # usage rollup: used / limit / cost per tenant
+  - POST /api/v1/checkout/create # creates a Stripe Checkout session for upgrade
+  - POST /api/v1/webhooks/stripe # Stripe webhook: signature-verified, deduplicated
