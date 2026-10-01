@@ -1,6 +1,6 @@
 # FlyRank Metering & Billing — Quick Start
 
-A small backend service for tracking usage, metering, and testing Stripe-based billing flows in development.
+A Node.js/Express and PostgreSQL backend for AI usage metering and billing, with idempotent token tracking, quota enforcement, cost summaries, and Stripe Checkout/webhook integration.
 
 ## Quick start
 
